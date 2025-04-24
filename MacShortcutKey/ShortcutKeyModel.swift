@@ -7,17 +7,19 @@ struct ShortcutKey: Codable, Identifiable {
     var modifiers: NSEvent.ModifierFlags
     var name: String
     var order: Int
+    var isEnabled: Bool
     
     enum CodingKeys: String, CodingKey {
-        case id, key, modifiers, name, order
+        case id, key, modifiers, name, order, isEnabled
     }
     
-    init(id: UUID = UUID(), key: String, modifiers: NSEvent.ModifierFlags, name: String, order: Int = -1) {
+    init(id: UUID = UUID(), key: String, modifiers: NSEvent.ModifierFlags, name: String, order: Int = -1, isEnabled: Bool = true) {
         self.id = id
         self.key = key
         self.modifiers = modifiers
         self.name = name
         self.order = order
+        self.isEnabled = isEnabled
     }
     
     init(from decoder: Decoder) throws {
@@ -28,6 +30,7 @@ struct ShortcutKey: Codable, Identifiable {
         modifiers = NSEvent.ModifierFlags(rawValue: rawValue)
         name = try container.decode(String.self, forKey: .name)
         order = try container.decode(Int.self, forKey: .order)
+        isEnabled = try container.decode(Bool.self, forKey: .isEnabled)
     }
     
     func encode(to encoder: Encoder) throws {
@@ -37,6 +40,7 @@ struct ShortcutKey: Codable, Identifiable {
         try container.encode(modifiers.rawValue, forKey: .modifiers)
         try container.encode(name, forKey: .name)
         try container.encode(order, forKey: .order)
+        try container.encode(isEnabled, forKey: .isEnabled)
     }
     
     var displayName: String {
@@ -80,6 +84,14 @@ class ShortcutKeyManager: ObservableObject {
         NotificationCenter.default.post(name: NSNotification.Name("ShortcutsUpdated"), object: nil)
     }
     
+    func toggleShortcut(_ shortcut: ShortcutKey) {
+        if let index = shortcuts.firstIndex(where: { $0.id == shortcut.id }) {
+            shortcuts[index].isEnabled.toggle()
+            saveShortcuts()
+            NotificationCenter.default.post(name: NSNotification.Name("ShortcutsUpdated"), object: nil)
+        }
+    }
+    
     private func reorderShortcuts() {
         for (index, var shortcut) in shortcuts.enumerated() {
             shortcut.order = index
@@ -110,5 +122,9 @@ class ShortcutKeyManager: ObservableObject {
         if let encoded = try? JSONEncoder().encode(shortcuts) {
             UserDefaults.standard.set(encoded, forKey: saveKey)
         }
+    }
+    
+    var enabledShortcuts: [ShortcutKey] {
+        return shortcuts.filter { $0.isEnabled }
     }
 } 

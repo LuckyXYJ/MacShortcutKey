@@ -136,6 +136,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func quit() {
         NSApplication.shared.terminate(nil)
     }
+    
+    func updateStatusBarMenu() {
+        let menu = NSMenu()
+        
+        // 添加启用的快捷键到菜单
+        for shortcut in shortcutManager.enabledShortcuts {
+            let menuItem = NSMenuItem(title: "\(shortcut.name) (\(shortcut.displayName))", action: nil, keyEquivalent: "")
+            menu.addItem(menuItem)
+        }
+        
+        menu.addItem(NSMenuItem.separator())
+        
+        // 添加设置菜单项
+        let settingsItem = NSMenuItem(title: "设置", action: #selector(openSettings), keyEquivalent: ",")
+        settingsItem.target = self
+        menu.addItem(settingsItem)
+        
+        // 添加退出菜单项
+        let quitItem = NSMenuItem(title: "退出", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        menu.addItem(quitItem)
+        
+        statusItem?.menu = menu
+    }
 }
 
 @main

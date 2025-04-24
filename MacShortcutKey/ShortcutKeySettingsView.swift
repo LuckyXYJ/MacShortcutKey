@@ -29,6 +29,14 @@ struct ShortcutKeySettingsView: View {
             List {
                 ForEach(keyManager.shortcuts) { shortcut in
                     HStack {
+                        if !isEditing {
+                            Toggle("", isOn: Binding(
+                                get: { shortcut.isEnabled },
+                                set: { _ in keyManager.toggleShortcut(shortcut) }
+                            ))
+                            .labelsHidden()
+                        }
+                        
                         if isEditing {
                             Image(systemName: "minus.circle.fill")
                                 .foregroundColor(.red)
