@@ -2,6 +2,9 @@ import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
 
+// 导入 ShortcutKeyModel
+import MacShortcutKey
+
 struct ShortcutKeySettingsView: View {
     @ObservedObject var keyManager: ShortcutKeyManager
     @State private var isAddingNew = false
@@ -9,6 +12,7 @@ struct ShortcutKeySettingsView: View {
     @State private var newKey = ""
     @State private var newModifiers: NSEvent.ModifierFlags = []
     @State private var isEditing = false
+    @State private var draggedItem: ShortcutKey?
     
     var body: some View {
         VStack {
@@ -51,17 +55,19 @@ struct ShortcutKeySettingsView: View {
                         }
                     }
                     .contentShape(Rectangle())
+                    .opacity(draggedItem?.id == shortcut.id ? 0.5 : 1.0)
                     .onDrag {
                         if isEditing {
-                            if let index = keyManager.shortcuts.firstIndex(where: { $0.id == shortcut.id }) {
-                                return NSItemProvider(object: "\(index)" as NSString)
-                            }
+                            self.draggedItem = shortcut
+                            return NSItemProvider(object: shortcut.id.uuidString as NSString)
                         }
                         return NSItemProvider()
                     }
-                    .onDrop(of: [UTType.text], delegate: DropViewDelegate(item: shortcut, items: keyManager.shortcuts, moveAction: { fromIndex, toIndex in
-                        keyManager.moveShortcuts(from: IndexSet([fromIndex]), to: toIndex)
-                    }))
+                    .onDrop(of: [UTType.text], delegate: ShortcutDropDelegate(item: shortcut, items: keyManager.shortcuts, draggedItem: $draggedItem) { fromIndex, toIndex in
+                        if let fromIndex = fromIndex {
+                            keyManager.moveShortcuts(from: IndexSet([fromIndex]), to: toIndex)
+                        }
+                    })
                 }
             }
             .frame(minHeight: 200)
@@ -134,25 +140,35 @@ struct ShortcutKeySettingsView: View {
     }
 }
 
-struct DropViewDelegate: DropDelegate {
+struct ShortcutDropDelegate: DropDelegate {
     let item: ShortcutKey
     let items: [ShortcutKey]
-    let moveAction: (Int, Int) -> Void
+    @Binding var draggedItem: ShortcutKey?
+    let moveAction: (Int?, Int) -> Void
     
     func performDrop(info: DropInfo) -> Bool {
-        let providers = info.itemProviders(for: [UTType.text])
-        guard let provider = providers.first else { return false }
+        guard let draggedItem = self.draggedItem else { return false }
         
-        provider.loadItem(forTypeIdentifier: UTType.text.identifier, options: nil) { (data, error) in
-            if let data = data as? NSString,
-               let index = Int(data as String) {
-                let toIndex = items.firstIndex(where: { $0.id == item.id }) ?? 0
-                DispatchQueue.main.async {
-                    moveAction(index, toIndex)
-                }
-            }
+        let fromIndex = items.firstIndex { $0.id == draggedItem.id }
+        let toIndex = items.firstIndex { $0.id == item.id } ?? 0
+        
+        if fromIndex != toIndex {
+            moveAction(fromIndex, toIndex)
         }
+        
+        self.draggedItem = nil
         return true
+    }
+    
+    func dropEntered(info: DropInfo) {
+        guard let fromIndex = items.firstIndex(where: { $0.id == draggedItem?.id }),
+              let toIndex = items.firstIndex(where: { $0.id == item.id }) else {
+            return
+        }
+        
+        if fromIndex != toIndex {
+            moveAction(fromIndex, toIndex)
+        }
     }
     
     func dropUpdated(info: DropInfo) -> DropProposal? {
@@ -160,7 +176,7 @@ struct DropViewDelegate: DropDelegate {
     }
     
     func validateDrop(info: DropInfo) -> Bool {
-        return true
+        return draggedItem != nil
     }
 }
 
