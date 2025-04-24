@@ -89,34 +89,41 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func updateMenu() {
         let menu = NSMenu()
         
-        // 添加所有快捷键
-        for shortcut in shortcutManager.shortcuts {
-            menu.addItem(NSMenuItem(
+        // 添加启用的快捷键到菜单
+        for shortcut in shortcutManager.enabledShortcuts {
+            let menuItem = NSMenuItem(
                 title: "\(shortcut.displayName) (\(shortcut.name))",
                 action: #selector(performShortcut(_:)),
                 keyEquivalent: ""
-            ))
+            )
+            menuItem.target = self
+            menu.addItem(menuItem)
         }
         
         menu.addItem(NSMenuItem.separator())
         
         // 添加设置选项
         let settingsItem = NSMenuItem(title: "设置快捷键...", action: #selector(openSettings), keyEquivalent: ",")
+        settingsItem.target = self
         settingsItem.keyEquivalentModifierMask = .command
         menu.addItem(settingsItem)
         
         menu.addItem(NSMenuItem.separator())
-        menu.addItem(NSMenuItem(title: "退出", action: #selector(quit), keyEquivalent: "q"))
+        
+        // 添加退出选项
+        let quitItem = NSMenuItem(title: "退出", action: #selector(quit), keyEquivalent: "q")
+        quitItem.target = self
+        menu.addItem(quitItem)
         
         statusItem?.menu = menu
     }
     
     @objc func performShortcut(_ sender: NSMenuItem) {
-        guard let index = statusItem?.menu?.items.firstIndex(of: sender),
-              index < shortcutManager.shortcuts.count else { return }
-        
-        let shortcut = shortcutManager.shortcuts[index]
-        KeySimulator.simulateKeyPress(key: shortcut.key, flags: shortcut.modifiers)
+        // 在启用的快捷键中查找匹配的项
+        let title = sender.title
+        if let shortcut = shortcutManager.enabledShortcuts.first(where: { "\($0.displayName) (\($0.name))" == title }) {
+            KeySimulator.simulateKeyPress(key: shortcut.key, flags: shortcut.modifiers)
+        }
     }
     
     @objc func openSettings() {
