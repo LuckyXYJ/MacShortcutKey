@@ -9,14 +9,39 @@ import SwiftUI
 import AppKit
 import Carbon
 
-@main
-struct MacShortcutKeyApp: App {
-    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+class SettingsWindowController: NSWindowController, NSWindowDelegate {
+    let shortcutManager: ShortcutKeyManager
     
-    var body: some Scene {
-        Settings {
-            EmptyView()
-        }
+    init(shortcutManager: ShortcutKeyManager) {
+        self.shortcutManager = shortcutManager
+        
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 300, height: 400),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        
+        super.init(window: window)
+        
+        window.title = "快捷键设置"
+        window.level = .floating
+        window.delegate = self
+        
+        let hostingView = NSHostingView(
+            rootView: ShortcutKeySettingsView(keyManager: shortcutManager)
+        )
+        window.contentView = hostingView
+        window.center()
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    func windowWillClose(_ notification: Notification) {
+        // 通知 AppDelegate 窗口已关闭
+        NotificationCenter.default.post(name: NSNotification.Name("SettingsWindowWillClose"), object: self)
     }
 }
 
@@ -24,6 +49,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem?
     var popover: NSPopover?
     let shortcutManager = ShortcutKeyManager()
+    var settingsWindowController: SettingsWindowController?
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         // 隐藏dock图标
@@ -46,6 +72,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             name: NSNotification.Name("ShortcutsUpdated"),
             object: nil
         )
+        
+        // 监听设置窗口关闭
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleSettingsWindowClose),
+            name: NSNotification.Name("SettingsWindowWillClose"),
+            object: nil
+        )
+    }
+    
+    @objc func handleSettingsWindowClose(_ notification: Notification) {
+        settingsWindowController = nil
     }
     
     @objc func updateMenu() {
@@ -82,23 +120,31 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     @objc func openSettings() {
-        let settingsWindow = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 300, height: 400),
-            styleMask: [.titled, .closable],
-            backing: .buffered,
-            defer: false
-        )
-        settingsWindow.title = "快捷键设置"
-        settingsWindow.contentView = NSHostingView(
-            rootView: ShortcutKeySettingsView(keyManager: shortcutManager)
-        )
-        settingsWindow.center()
-        settingsWindow.makeKeyAndOrderFront(nil)
+        if let windowController = settingsWindowController {
+            windowController.window?.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
         
+        let windowController = SettingsWindowController(shortcutManager: shortcutManager)
+        windowController.showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
+        
+        settingsWindowController = windowController
     }
     
     @objc func quit() {
         NSApplication.shared.terminate(nil)
+    }
+}
+
+@main
+struct MacShortcutKeyApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    
+    var body: some Scene {
+        Settings {
+            EmptyView()
+        }
     }
 }
