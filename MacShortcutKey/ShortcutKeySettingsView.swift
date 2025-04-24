@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 struct ShortcutKeySettingsView: View {
     @ObservedObject var keyManager: ShortcutKeyManager
@@ -7,21 +8,60 @@ struct ShortcutKeySettingsView: View {
     @State private var newKeyName = ""
     @State private var newKey = ""
     @State private var newModifiers: NSEvent.ModifierFlags = []
+    @State private var isEditing = false
     
     var body: some View {
         VStack {
+            HStack {
+                Text("快捷键列表")
+                    .font(.headline)
+                Spacer()
+                Button(isEditing ? "完成" : "编辑") {
+                    isEditing.toggle()
+                }
+            }
+            .padding(.horizontal)
+            
             List {
                 ForEach(keyManager.shortcuts) { shortcut in
                     HStack {
-                        Text(shortcut.name)
+                        if isEditing {
+                            Image(systemName: "minus.circle.fill")
+                                .foregroundColor(.red)
+                                .onTapGesture {
+                                    if let index = keyManager.shortcuts.firstIndex(where: { $0.id == shortcut.id }) {
+                                        keyManager.removeShortcuts(at: IndexSet([index]))
+                                    }
+                                }
+                        }
+                        
+                        Image(systemName: "keyboard")
+                            .foregroundColor(.gray)
+                        VStack(alignment: .leading) {
+                            Text(shortcut.name)
+                                .fontWeight(.medium)
+                            Text(shortcut.displayName)
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
                         Spacer()
-                        Text(shortcut.displayName)
+                        if isEditing {
+                            Image(systemName: "arrow.up.arrow.down")
+                                .foregroundColor(.gray)
+                        }
                     }
-                }
-                .onDelete { indices in
-                    indices.forEach { index in
-                        keyManager.removeShortcut(at: index)
+                    .contentShape(Rectangle())
+                    .onDrag {
+                        if isEditing {
+                            if let index = keyManager.shortcuts.firstIndex(where: { $0.id == shortcut.id }) {
+                                return NSItemProvider(object: "\(index)" as NSString)
+                            }
+                        }
+                        return NSItemProvider()
                     }
+                    .onDrop(of: [UTType.text], delegate: DropViewDelegate(item: shortcut, items: keyManager.shortcuts, moveAction: { fromIndex, toIndex in
+                        keyManager.moveShortcuts(from: IndexSet([fromIndex]), to: toIndex)
+                    }))
                 }
             }
             .frame(minHeight: 200)
@@ -91,6 +131,36 @@ struct ShortcutKeySettingsView: View {
         newKeyName = ""
         newKey = ""
         newModifiers = []
+    }
+}
+
+struct DropViewDelegate: DropDelegate {
+    let item: ShortcutKey
+    let items: [ShortcutKey]
+    let moveAction: (Int, Int) -> Void
+    
+    func performDrop(info: DropInfo) -> Bool {
+        let providers = info.itemProviders(for: [UTType.text])
+        guard let provider = providers.first else { return false }
+        
+        provider.loadItem(forTypeIdentifier: UTType.text.identifier, options: nil) { (data, error) in
+            if let data = data as? NSString,
+               let index = Int(data as String) {
+                let toIndex = items.firstIndex(where: { $0.id == item.id }) ?? 0
+                DispatchQueue.main.async {
+                    moveAction(index, toIndex)
+                }
+            }
+        }
+        return true
+    }
+    
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        return DropProposal(operation: .move)
+    }
+    
+    func validateDrop(info: DropInfo) -> Bool {
+        return true
     }
 }
 
