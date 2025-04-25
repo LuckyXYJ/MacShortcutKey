@@ -2,9 +2,6 @@ import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
 
-// 导入 ShortcutKeyModel
-import MacShortcutKey
-
 struct ShortcutKeySettingsView: View {
     @ObservedObject var keyManager: ShortcutKeyManager
     @State private var isAddingNew = false
