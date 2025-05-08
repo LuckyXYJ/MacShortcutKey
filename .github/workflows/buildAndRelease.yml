@@ -61,11 +61,11 @@ jobs:
             -scheme "$SCHEME" \
             -"${{ env.FILETYPE_PARAMETER }}" "${{ env.FILE_TO_BUILD }}" \
             -archivePath "$ARCHIVE_PATH" \
+            | xcpretty # 使用 xcpretty 美化输出
             # CODE_SIGN_IDENTITY 和 PROVISIONING_PROFILE 通常在 ExportOptions.plist 中指定
             # 如果需要在这里覆盖，请小心处理签名信息，尤其是在 CI 环境中
             # CODE_SIGN_IDENTITY="Apple Development" \
             # PROVISIONING_PROFILE="YOUR_PROVISIONING_PROFILE_UUID" \
-            | xcpretty # 使用 xcpretty 美化输出
           # 如果需要，可以添加 && exit ${PIPESTATUS[0]} 来检查 xcodebuild 的退出码
 
       # 步骤 6: 导出应用包 (Export)
