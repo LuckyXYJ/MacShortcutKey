@@ -6,6 +6,12 @@ on:
     tags:
       - 'v*' # 匹配所有以 'v' 开头的 Tag
 
+permissions: # 在这里设置整个工作流的默认权限
+  contents: write # 授予对仓库内容的写入权限，包括创建 Release
+  # 如果还需要其他权限，可以在这里添加，例如:
+  # issues: write
+  # pull-requests: write
+
 jobs:
   build_and_release:
     name: Build, Archive, Copy App, Zip and create Release
