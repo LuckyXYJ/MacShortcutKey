@@ -104,6 +104,11 @@
 			knownRegions = (
 				en,
 				Base,
+				"zh-Hant",
+				"zh-HK",
+				"zh-Hans",
+				ja,
+				ko,
 			);
 			mainGroup = 7B7B895B2DBA646700329B44;
 			minimizedProjectReferenceProxies = 1;
@@ -156,6 +161,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 13.5;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.xyj.MacShortcutKey;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -182,6 +188,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 13.5;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.xyj.MacShortcutKey;
 				PRODUCT_NAME = "$(TARGET_NAME)";

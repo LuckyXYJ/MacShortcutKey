@@ -49,6 +49,9 @@ struct ShortcutKey: Codable, Identifiable {
         if modifiers.contains(.shift) { modifierSymbols += "⇧ + " }
         if modifiers.contains(.option) { modifierSymbols += "⌥ + " }
         if modifiers.contains(.control) { modifierSymbols += "⌃ + " }
+        if key.uppercased() == " " {
+            return modifierSymbols + "Space"
+        }
         return modifierSymbols + key.uppercased()
     }
 }

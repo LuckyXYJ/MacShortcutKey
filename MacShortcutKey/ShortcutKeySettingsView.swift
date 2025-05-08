@@ -10,6 +10,7 @@ struct ShortcutKeySettingsView: View {
     @State private var newModifiers: NSEvent.ModifierFlags = []
     @State private var isEditing = false
     @State private var draggedItem: ShortcutKey?
+    @State private var showKeyHelp = false
     
     var body: some View {
         VStack {
@@ -105,6 +106,23 @@ struct ShortcutKeySettingsView: View {
                         TextField("按键", text: $newKey)
                             .frame(width: 50)
                             .textFieldStyle(RoundedBorderTextFieldStyle())
+                        Image(systemName: "info.circle")
+                            .foregroundColor(.blue)
+                            .onHover { hovering in
+                                showKeyHelp = hovering
+                            }
+                            .popover(isPresented: $showKeyHelp) {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text("特殊按键输入说明：")
+                                        .font(.headline)
+                                    Text("esc, enter, tab, delete, forwarddelete, keypadenter, left, right, up, down")
+                                        .font(.body)
+                                    Text("如需添加这些按键，请直接输入上面对应的英文名称。")
+                                        .font(.footnote)
+                                }
+                                .padding()
+                                .frame(width: 260)
+                            }
                     }
                     
                     HStack {

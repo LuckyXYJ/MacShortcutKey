@@ -83,6 +83,16 @@ class KeySimulator {
             ".": 0x2F,
             "`": 0x32,
             " ": 0x31,
+            "esc": 0x35,
+            "enter": 0x24,
+            "tab": 0x30,
+            "delete": 0x33,
+            "forwarddelete": 0x75,
+            "keypadenter": 0x4C,
+            "left": 0x7B,
+            "right": 0x7C,
+            "up": 0x7E,
+            "down": 0x7F,
         ]
         
         return keyMap[key.lowercased()]
