@@ -6,7 +6,14 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		7B1741CC2DCC97C100856BD6 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 7B1741CB2DCC97C100856BD6 /* Localizable.xcstrings */; };
+		7B1741CE2DCC98A800856BD6 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 7B1741CD2DCC98A800856BD6 /* InfoPlist.xcstrings */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
+		7B1741CB2DCC97C100856BD6 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		7B1741CD2DCC98A800856BD6 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
 		7B7B89642DBA646700329B44 /* MacShortcutKey.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MacShortcutKey.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -45,6 +52,8 @@
 		7B7B895B2DBA646700329B44 = {
 			isa = PBXGroup;
 			children = (
+				7B1741CD2DCC98A800856BD6 /* InfoPlist.xcstrings */,
+				7B1741CB2DCC97C100856BD6 /* Localizable.xcstrings */,
 				7B7B89662DBA646700329B44 /* MacShortcutKey */,
 				7B7B89652DBA646700329B44 /* Products */,
 			);
@@ -127,6 +136,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7B1741CE2DCC98A800856BD6 /* InfoPlist.xcstrings in Resources */,
+				7B1741CC2DCC97C100856BD6 /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -256,6 +267,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
 			name = Debug;
@@ -312,6 +324,7 @@
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_LOC_STRINGS = YES;
 			};
 			name = Release;
 		};

@@ -24,7 +24,7 @@ class SettingsWindowController: NSWindowController, NSWindowDelegate {
         
         super.init(window: window)
         
-        window.title = "快捷键设置"
+        window.title = String(localized: "快捷键设置")
         window.level = .floating
         window.delegate = self
         
@@ -103,7 +103,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem.separator())
         
         // 添加设置选项
-        let settingsItem = NSMenuItem(title: "设置快捷键...", action: #selector(openSettings), keyEquivalent: ",")
+        let settingsItem = NSMenuItem(title: String(localized: "设置快捷键..."), action: #selector(openSettings), keyEquivalent: ",")
         settingsItem.target = self
         settingsItem.keyEquivalentModifierMask = .command
         menu.addItem(settingsItem)
@@ -111,7 +111,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem.separator())
         
         // 添加退出选项
-        let quitItem = NSMenuItem(title: "退出", action: #selector(quit), keyEquivalent: "q")
+        let quitItem = NSMenuItem(title: String(localized: "退出"), action: #selector(quit), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
         
@@ -156,12 +156,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem.separator())
         
         // 添加设置菜单项
-        let settingsItem = NSMenuItem(title: "设置", action: #selector(openSettings), keyEquivalent: ",")
+        let settingsItem = NSMenuItem(title: String(localized: "设置"), action: #selector(openSettings), keyEquivalent: ",")
         settingsItem.target = self
         menu.addItem(settingsItem)
         
         // 添加退出菜单项
-        let quitItem = NSMenuItem(title: "退出", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        let quitItem = NSMenuItem(title: String(localized: "退出"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         menu.addItem(quitItem)
         
         statusItem?.menu = menu

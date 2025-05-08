@@ -114,9 +114,9 @@ class ShortcutKeyManager: ObservableObject {
         } else {
             // 默认快捷键
             shortcuts = [
-                ShortcutKey(key: "c", modifiers: .command, name: "复制", order: 0),
-                ShortcutKey(key: "v", modifiers: .command, name: "粘贴", order: 1),
-                ShortcutKey(key: "a", modifiers: [.command, .shift], name: "全选", order: 2)
+                ShortcutKey(key: "c", modifiers: .command, name: String(localized: "复制"), order: 0),
+                ShortcutKey(key: "v", modifiers: .command, name: String(localized: "粘贴"), order: 1),
+                ShortcutKey(key: "a", modifiers: [.command, .shift], name: String(localized: "全选"), order: 2)
             ]
         }
     }

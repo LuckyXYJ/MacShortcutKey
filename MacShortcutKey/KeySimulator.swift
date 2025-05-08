@@ -87,8 +87,8 @@ class KeySimulator {
             "enter": 0x24,
             "tab": 0x30,
             "delete": 0x33,
-            "forwarddelete": 0x75,
-            "keypadenter": 0x4C,
+            "forwarddelete": 0x75, // 删除键
+            "keypadenter": 0x4C, // 数字键盘 Enter
             "left": 0x7B,
             "right": 0x7C,
             "up": 0x7E,
