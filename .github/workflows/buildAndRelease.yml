@@ -1,0 +1,124 @@
+name: Xcode - Build, Archive, Export and Release
+
+on:
+  # 修改触发条件：只在推送 Tag 时触发，通常 Tag 格式为 vX.Y.Z
+  push:
+    tags:
+      - 'v*' # 匹配所有以 'v' 开头的 Tag，例如 v1.0, v1.0.1 等
+
+jobs:
+  build_and_release: # 更改 Job 名称以反映其新功能
+    name: Build, Archive, Export and create Release
+    runs-on: macos-15 # macos-latest 也可以，但 macos-15 是最新的 macOS runner
+
+    steps:
+      - name: Checkout # 步骤 1: 检出代码
+        uses: actions/checkout@v4
+
+      - name: Show Xcode version # 步骤 2: 显示 Xcode 版本
+        run: xcodebuild -version
+
+      # 步骤 3: 确定默认 Scheme (保留原逻辑，但请注意此方法可能不够健壮)
+      - name: Set Default Scheme
+        run: |
+          # 使用 ruby 解析 json 确定第一个 target 作为 default scheme
+          scheme_list=$(xcodebuild -list -json | tr -d "\n")
+          # 注意：这里的逻辑是获取项目/工作区的第一个 target 作为 Scheme，这可能不总是你想要打包的 Scheme
+          # 更可靠的方法是明确指定 Scheme，或者根据项目类型/名称搜索 Scheme
+          default=$(echo $scheme_list | ruby -e "require 'json'; puts JSON.parse(STDIN.gets)['project']['targets'][0]")
+          echo "$default" > default # 将 Scheme 名称写入文件
+          echo "Using default scheme: $default"
+
+      # 步骤 4: 确定项目文件类型 (.xcodeproj 或 .xcworkspace) 和路径
+      - name: Set Project/Workspace File
+        run: |
+          if [ "`ls -A | grep -i \\.xcworkspace\$`" ]; then
+            echo "FILETYPE_PARAMETER=workspace" >> $GITHUB_ENV
+            echo "FILE_TO_BUILD=`ls -A | grep -i \\.xcworkspace\$ | awk '{$1=$1;print}'`" >> $GITHUB_ENV
+          elif [ "`ls -A | grep -i \\.xcodeproj\$`" ]; then
+            echo "FILETYPE_PARAMETER=project" >> $GITHUB_ENV
+            echo "FILE_TO_BUILD=`ls -A | grep -i \\.xcodeproj\$ | awk '{$1=$1;print}'`" >> $GITHUB_ENV
+          else
+            echo "Error: No .xcworkspace or .xcodeproj found"
+            exit 1
+          fi
+          echo "Detected file type: ${{ env.FILETYPE_PARAMETER }}"
+          echo "Detected file path: ${{ env.FILE_TO_BUILD }}"
+
+      # 步骤 5: 清理并归档项目 (Archive)
+      # 将 'clean build analyze' 替换为 'clean archive'
+      - name: Clean and Archive
+        env:
+          # 从文件中读取 Scheme 名称
+          SCHEME: ${{ 'default' }} # 默认使用文件中的 Scheme
+          ARCHIVE_PATH: ${{ runner.temp }}/build/MyApp.xcarchive # 指定归档文件输出路径
+        run: |
+          # 如果 SCHEME 是 'default'，则从 default 文件中读取实际 Scheme
+          if [ "$SCHEME" = "default" ]; then SCHEME=$(cat default); fi
+          
+          # 执行 clean 和 archive 命令
+          xcodebuild clean archive \
+            -scheme "$SCHEME" \
+            -"${{ env.FILETYPE_PARAMETER }}" "${{ env.FILE_TO_BUILD }}" \
+            -archivePath "$ARCHIVE_PATH" \
+            # CODE_SIGN_IDENTITY 和 PROVISIONING_PROFILE 通常在 ExportOptions.plist 中指定
+            # 如果需要在这里覆盖，请小心处理签名信息，尤其是在 CI 环境中
+            # CODE_SIGN_IDENTITY="Apple Development" \
+            # PROVISIONING_PROFILE="YOUR_PROVISIONING_PROFILE_UUID" \
+            | xcpretty # 使用 xcpretty 美化输出
+          # 如果需要，可以添加 && exit ${PIPESTATUS[0]} 来检查 xcodebuild 的退出码
+
+      # 步骤 6: 导出应用包 (Export)
+      # 这个步骤需要 ExportOptions.plist 文件
+      - name: Export App
+        env:
+          ARCHIVE_PATH: ${{ runner.temp }}/build/MyApp.xcarchive # 归档文件路径
+          EXPORT_PATH: ${{ runner.temp }}/dist # 导出文件输出目录
+          # 注意：EXPORT_OPTIONS_PLIST_PATH 需要指向你的 ExportOptions.plist 文件在代码仓库中的路径
+          # 例如：./ExportOptions.plist 或者 ./ci/ExportOptions.plist
+          EXPORT_OPTIONS_PLIST_PATH: ./ExportOptions.plist # <--- ***请根据你的项目结构修改此路径***
+        run: |
+          # 创建导出目录
+          mkdir -p "$EXPORT_PATH"
+          
+          # 执行 exportArchive 命令
+          xcodebuild -exportArchive \
+            -archivePath "$ARCHIVE_PATH" \
+            -exportPath "$EXPORT_PATH" \
+            -exportOptionsPlist "$EXPORT_OPTIONS_PLIST_PATH" \
+            | xcpretty
+          
+          # 查找导出的文件 (例如 .app, .ipa, .pkg)
+          EXPORTED_FILE=$(find "$EXPORT_PATH" -maxdepth 1 \( -name "*.app" -o -name "*.ipa" -o -name "*.pkg" \) | head -n 1)
+          if [ -z "$EXPORTED_FILE" ]; then
+            echo "Error: No exported application file found in $EXPORT_PATH"
+            exit 1
+          fi
+          echo "EXPORTED_FILE_PATH=$EXPORTED_FILE" >> $GITHUB_ENV # 将导出文件路径保存到环境变量
+
+      # 步骤 7: 创建 GitHub Release
+      - name: Create GitHub Release
+        id: create_release # 为此步骤设置一个 ID，以便后续引用其输出
+        uses: actions/create-release@v1 # 使用 create-release Action
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # GitHub 提供的默认 token，有创建 Release 的权限
+        with:
+          tag_name: ${{ github.ref_name }} # 使用触发工作流的 Tag 名称作为 Release Tag
+          release_name: Release ${{ github.ref_name }} # Release 的名称
+          body: | # Release 的描述信息
+            Build from tag ${{ github.ref_name }}
+            Automated release process.
+          draft: false # 设置为 true 创建草稿，false 直接发布
+          prerelease: false # 设置为 true 标记为预发布版本
+
+      # 步骤 8: 上传导出的应用包到 Release
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1 # 使用 upload-release-asset Action
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # GitHub token
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # 上传 URL 来自上一步骤的输出
+          asset_path: ${{ env.EXPORTED_FILE_PATH }} # 要上传的文件路径 (来自步骤 6 的环境变量)
+          asset_name: $(basename ${{ env.EXPORTED_FILE_PATH }}) # 上传后的文件名称，使用原文件名
+          asset_content_type: application/octet-stream # 标准的二进制文件 MIME 类型
+
