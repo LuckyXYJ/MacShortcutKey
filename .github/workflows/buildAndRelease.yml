@@ -1,15 +1,15 @@
-name: Xcode - Build, Archive, Export and Release
+name: Xcode - Build, Archive, Copy App, Zip and Release
 
 on:
-  # 修改触发条件：只在推送 Tag 时触发，通常 Tag 格式为 vX.Y.Z
+  # 依然建议只在推送 Tag 时触发 Release 流程
   push:
     tags:
-      - 'v*' # 匹配所有以 'v' 开头的 Tag，例如 v1.0, v1.0.1 等
+      - 'v*' # 匹配所有以 'v' 开头的 Tag
 
 jobs:
-  build_and_release: # 更改 Job 名称以反映其新功能
-    name: Build, Archive, Export and create Release
-    runs-on: macos-15 # macos-latest 也可以，但 macos-15 是最新的 macOS runner
+  build_and_release:
+    name: Build, Archive, Copy App, Zip and create Release
+    runs-on: macos-15 # 或 macos-latest
 
     steps:
       - name: Checkout # 步骤 1: 检出代码
@@ -21,12 +21,9 @@ jobs:
       # 步骤 3: 确定默认 Scheme (保留原逻辑，但请注意此方法可能不够健壮)
       - name: Set Default Scheme
         run: |
-          # 使用 ruby 解析 json 确定第一个 target 作为 default scheme
           scheme_list=$(xcodebuild -list -json | tr -d "\n")
-          # 注意：这里的逻辑是获取项目/工作区的第一个 target 作为 Scheme，这可能不总是你想要打包的 Scheme
-          # 更可靠的方法是明确指定 Scheme，或者根据项目类型/名称搜索 Scheme
-          default=$(echo $scheme_list | ruby -e "require 'json'; puts JSON.parse(STDIN.gets)['project']['targets'][0]")
-          echo "$default" > default # 将 Scheme 名称写入文件
+          default=$(echo "$scheme_list" | ruby -e "require 'json'; puts JSON.parse(STDIN.gets)['project']['targets'][0]")
+          echo "$default" > default
           echo "Using default scheme: $default"
 
       # 步骤 4: 确定项目文件类型 (.xcodeproj 或 .xcworkspace) 和路径
@@ -46,79 +43,113 @@ jobs:
           echo "Detected file path: ${{ env.FILE_TO_BUILD }}"
 
       # 步骤 5: 清理并归档项目 (Archive)
-      # 将 'clean build analyze' 替换为 'clean archive'
       - name: Clean and Archive
         env:
-          # 从文件中读取 Scheme 名称
-          SCHEME: ${{ 'default' }} # 默认使用文件中的 Scheme
+          SCHEME: ${{ 'default' }}
           ARCHIVE_PATH: ${{ runner.temp }}/build/MyApp.xcarchive # 指定归档文件输出路径
         run: |
-          # 如果 SCHEME 是 'default'，则从 default 文件中读取实际 Scheme
           if [ "$SCHEME" = "default" ]; then SCHEME=$(cat default); fi
-          
-          # 执行 clean 和 archive 命令
+
           xcodebuild clean archive \
             -scheme "$SCHEME" \
             -"${{ env.FILETYPE_PARAMETER }}" "${{ env.FILE_TO_BUILD }}" \
             -archivePath "$ARCHIVE_PATH" \
-            #| xcpretty # 使用 xcpretty 美化输出
-            # CODE_SIGN_IDENTITY 和 PROVISIONING_PROFILE 通常在 ExportOptions.plist 中指定
-            # 如果需要在这里覆盖，请小心处理签名信息，尤其是在 CI 环境中
+            # 注意：Archive 步骤仍然需要签名，但具体的签名配置通常在项目设置中
+            # 如果需要在这里覆盖，请小心处理
             # CODE_SIGN_IDENTITY="Apple Development" \
             # PROVISIONING_PROFILE="YOUR_PROVISIONING_PROFILE_UUID" \
-          # 如果需要，可以添加 && exit ${PIPESTATUS[0]} 来检查 xcodebuild 的退出码
+            #| xcpretty
 
-      # 步骤 6: 导出应用包 (Export)
-      # 这个步骤需要 ExportOptions.plist 文件
-      - name: Export App
-        env:
-          ARCHIVE_PATH: ${{ runner.temp }}/build/MyApp.xcarchive # 归档文件路径
-          EXPORT_PATH: ${{ runner.temp }}/dist # 导出文件输出目录
-          # 注意：EXPORT_OPTIONS_PLIST_PATH 需要指向你的 ExportOptions.plist 文件在代码仓库中的路径
-          # 例如：./ExportOptions.plist 或者 ./ci/ExportOptions.plist
-          EXPORT_OPTIONS_PLIST_PATH: ./ExportOptions.plist # <--- ***请根据你的项目结构修改此路径***
-        run: |
-          # 创建导出目录
-          mkdir -p "$EXPORT_PATH"
-          
-          # 执行 exportArchive 命令
-          xcodebuild -exportArchive \
-            -archivePath "$ARCHIVE_PATH" \
-            -exportPath "$EXPORT_PATH" \
-            -exportOptionsPlist "$EXPORT_OPTIONS_PLIST_PATH" \
-            | xcpretty
-          
-          # 查找导出的文件 (例如 .app, .ipa, .pkg)
-          EXPORTED_FILE=$(find "$EXPORT_PATH" -maxdepth 1 \( -name "*.app" -o -name "*.ipa" -o -name "*.pkg" \) | head -n 1)
-          if [ -z "$EXPORTED_FILE" ]; then
-            echo "Error: No exported application file found in $EXPORT_PATH"
+          # 检查归档是否成功
+          if [ ! -d "$ARCHIVE_PATH" ]; then
+            echo "Error: Archive failed. Archive path not found: $ARCHIVE_PATH"
             exit 1
           fi
-          echo "EXPORTED_FILE_PATH=$EXPORTED_FILE" >> $GITHUB_ENV # 将导出文件路径保存到环境变量
+          echo "Archive created at: $ARCHIVE_PATH"
 
-      # 步骤 7: 创建 GitHub Release
+      # 6: 从 Archive 中复制 .app 包 (模拟 "Copy App")
+      - name: Copy App Bundle from Archive
+        env:
+          ARCHIVE_PATH: ${{ runner.temp }}/build/MyApp.xcarchive
+          EXPORT_DIR: ${{ runner.temp }}/dist # 指定导出目录
+        run: |
+          mkdir -p "$EXPORT_DIR" # 创建导出目录
+
+          # 在 Archive 中查找 .app 文件，通常位于 Products/Applications/
+          APP_BUNDLE_PATH=$(find "$ARCHIVE_PATH/Products/Applications" -maxdepth 1 -name "*.app" | head -n 1)
+
+          if [ -z "$APP_BUNDLE_PATH" ]; then
+            echo "Error: .app bundle not found in $ARCHIVE_PATH/Products/Applications"
+            exit 1
+          fi
+
+          # 获取 .app 文件的名称
+          APP_BUNDLE_NAME=$(basename "$APP_BUNDLE_PATH")
+          # 确定复制 .app 的目标路径
+          COPIED_APP_PATH="$EXPORT_DIR/$APP_BUNDLE_NAME"
+
+          echo "Found app bundle: $APP_BUNDLE_PATH"
+          echo "Copying to: $COPIED_APP_PATH"
+
+          # 复制 .app 目录
+          cp -R "$APP_BUNDLE_PATH" "$COPIED_APP_PATH"
+
+          # 将复制后的 .app 路径保存到环境变量，供后续步骤使用
+          echo "COPIED_APP_PATH=$COPIED_APP_PATH" >> $GITHUB_ENV
+          echo "COPIED_APP_NAME=$APP_BUNDLE_NAME" >> $GITHUB_ENV # 保存 app 名称用于 zip 文件命名
+
+      # 步骤 7: 将 .app 包打包成 Zip 文件
+      - name: Zip App Bundle
+        env:
+          COPIED_APP_PATH: ${{ env.COPIED_APP_PATH }} # 来自上一步骤的环境变量
+          COPIED_APP_NAME: ${{ env.COPIED_APP_NAME }} # 来自上一步骤的环境变量
+          EXPORT_DIR: ${{ runner.temp }}/dist # 导出目录
+        run: |
+          if [ -z "$COPIED_APP_PATH" ]; then
+            echo "Error: COPIED_APP_PATH is not set. Cannot zip."
+            exit 1
+          fi
+
+          # 切换到导出目录，以便 zip 命令在正确的位置创建文件
+          cd "$EXPORT_DIR"
+
+          # 使用 zip 命令打包 .app 目录
+          # -r 表示递归打包子目录
+          # -y 表示保留符号链接 (重要，否则可能导致 app 无法运行)
+          # --symlinks 也表示保留符号链接 (zip 命令的另一个选项，取决于系统)
+          # 确保 zip 文件名是 .app 名称加上 .zip 后缀
+          ZIP_FILE_NAME="${COPIED_APP_NAME}.zip"
+          zip -r -y "$ZIP_FILE_NAME" "$(basename "$COPIED_APP_PATH")"
+
+          # 将生成的 zip 文件路径保存到环境变量
+          ZIP_FILE_PATH="$EXPORT_DIR/$ZIP_FILE_NAME"
+          echo "ZIP_FILE_PATH=$ZIP_FILE_PATH" >> $GITHUB_ENV
+          echo "ZIP_FILE_NAME=$ZIP_FILE_NAME" >> $GITHUB_ENV
+          echo "App bundle zipped to: $ZIP_FILE_PATH"
+
+      # 步骤 8: 创建 GitHub Release
       - name: Create GitHub Release
-        id: create_release # 为此步骤设置一个 ID，以便后续引用其输出
-        uses: actions/create-release@v1 # 使用 create-release Action
+        id: create_release
+        uses: actions/create-release@v1 # 或更高版本
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # GitHub 提供的默认 token，有创建 Release 的权限
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ github.ref_name }} # 使用触发工作流的 Tag 名称作为 Release Tag
-          release_name: Release ${{ github.ref_name }} # Release 的名称
-          body: | # Release 的描述信息
+          tag_name: ${{ github.ref_name }}
+          release_name: Release ${{ github.ref_name }}
+          body: |
             Build from tag ${{ github.ref_name }}
-            Automated release process.
-          draft: false # 设置为 true 创建草稿，false 直接发布
-          prerelease: false # 设置为 true 标记为预发布版本
+            Automated release process (Copy App method).
+          draft: false
+          prerelease: false
 
-      # 步骤 8: 上传导出的应用包到 Release
+      # 步骤 9: 上传 Zip 文件到 Release
       - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1 # 使用 upload-release-asset Action
+        uses: actions/upload-release-asset@v1 # 或更高版本
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # GitHub token
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # 上传 URL 来自上一步骤的输出
-          asset_path: ${{ env.EXPORTED_FILE_PATH }} # 要上传的文件路径 (来自步骤 6 的环境变量)
-          asset_name: $(basename ${{ env.EXPORTED_FILE_PATH }}) # 上传后的文件名称，使用原文件名
-          asset_content_type: application/octet-stream # 标准的二进制文件 MIME 类型
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ env.ZIP_FILE_PATH }} # 上传 zip 文件
+          asset_name: ${{ env.ZIP_FILE_NAME }} # 使用 zip 文件名作为 asset 名称
+          asset_content_type: application/zip # 指定 MIME 类型为 zip
 
